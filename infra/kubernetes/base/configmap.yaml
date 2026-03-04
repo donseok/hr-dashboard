@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hr-dashboard-config
+  namespace: hr-dashboard
+data:
+  NODE_ENV: "production"
+  # API
+  API_PORT: "4000"
+  GRAPHQL_PLAYGROUND: "false"
+  GRAPHQL_INTROSPECTION: "false"
+  # ML Service
+  ML_SERVICE_HOST: "0.0.0.0"
+  ML_SERVICE_PORT: "8000"
+  # Redis
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  # Kafka
+  KAFKA_BROKERS: "kafka:9092"
+  # Elasticsearch
+  ELASTICSEARCH_URL: "http://elasticsearch:9200"

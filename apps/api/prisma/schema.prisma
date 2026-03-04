@@ -1,0 +1,581 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  ON_LEAVE
+  TERMINATED
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERN
+}
+
+enum RequisitionStatus {
+  DRAFT
+  OPEN
+  ON_HOLD
+  CLOSED
+  CANCELLED
+}
+
+enum ApplicationStage {
+  APPLIED
+  SCREENING
+  PHONE_INTERVIEW
+  TECHNICAL_INTERVIEW
+  ONSITE_INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
+}
+
+enum ApplicationStatus {
+  ACTIVE
+  WITHDRAWN
+  REJECTED
+  HIRED
+}
+
+enum InterviewResult {
+  PENDING
+  PASSED
+  FAILED
+  NO_SHOW
+}
+
+enum PerformanceCycleStatus {
+  DRAFT
+  ACTIVE
+  CALIBRATION
+  COMPLETED
+}
+
+enum ReviewRating {
+  EXCEPTIONAL
+  EXCEEDS_EXPECTATIONS
+  MEETS_EXPECTATIONS
+  NEEDS_IMPROVEMENT
+  UNSATISFACTORY
+}
+
+enum SurveyType {
+  ENGAGEMENT
+  PULSE
+  EXIT
+  ONBOARDING
+  CUSTOM
+}
+
+enum SurveyStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+  ARCHIVED
+}
+
+enum EnrollmentStatus {
+  ENROLLED
+  IN_PROGRESS
+  COMPLETED
+  DROPPED
+  WAITLISTED
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  SUCCESS
+  ERROR
+  ACTION_REQUIRED
+}
+
+enum ModuleType {
+  RECRUITMENT
+  WORKFORCE
+  PERFORMANCE
+  CULTURE
+  DEVELOPMENT
+  DEI
+  LIFECYCLE
+}
+
+enum MlModelType {
+  ATTRITION_RISK
+  PERFORMANCE_PREDICTION
+  ENGAGEMENT_FORECAST
+  HIRING_SUCCESS
+}
+
+// ─── Organization ────────────────────────────────────────
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  code      String   @unique
+  industry  String?
+  size      String?
+  logoUrl   String?  @map("logo_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  departments Department[]
+  employees   Employee[]
+
+  @@map("organizations")
+}
+
+// ─── Department ──────────────────────────────────────────
+
+model Department {
+  id             String   @id @default(uuid())
+  name           String
+  code           String   @unique
+  description    String?
+  organizationId String   @map("organization_id")
+  parentId       String?  @map("parent_id")
+  headId         String?  @map("head_id")
+  headcount      Int      @default(0)
+  budget         Decimal? @db.Decimal(15, 2)
+  costCenter     String?  @map("cost_center")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization   Organization    @relation(fields: [organizationId], references: [id])
+  parent         Department?     @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children       Department[]    @relation("DepartmentHierarchy")
+  employees      Employee[]
+  requisitions   JobRequisition[]
+
+  @@index([organizationId])
+  @@index([parentId])
+  @@map("departments")
+}
+
+// ─── Employee ────────────────────────────────────────────
+
+model Employee {
+  id              String         @id @default(uuid())
+  employeeNumber  String         @unique @map("employee_number")
+  firstName       String         @map("first_name")
+  lastName        String         @map("last_name")
+  email           String         @unique
+  phone           String?
+  avatarUrl       String?        @map("avatar_url")
+  departmentId    String         @map("department_id")
+  organizationId  String         @map("organization_id")
+  position        String
+  grade           String?
+  managerId       String?        @map("manager_id")
+  hireDate        DateTime       @map("hire_date")
+  terminationDate DateTime?      @map("termination_date")
+  employmentType  EmploymentType @default(FULL_TIME) @map("employment_type")
+  status          EmployeeStatus @default(ACTIVE)
+  location        String?
+  salary          Decimal?       @db.Decimal(15, 2)
+  metadata        Json?
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  organization         Organization         @relation(fields: [organizationId], references: [id])
+  department           Department           @relation(fields: [departmentId], references: [id])
+  manager              Employee?            @relation("EmployeeManager", fields: [managerId], references: [id])
+  directReports        Employee[]           @relation("EmployeeManager")
+  userAccount          UserAccount?
+  performanceReviews   PerformanceReview[]  @relation("ReviewEmployee")
+  reviewsGiven         PerformanceReview[]  @relation("ReviewReviewer")
+  interviews           Interview[]          @relation("Interviewer")
+  surveyResponses      SurveyResponse[]
+  trainingEnrollments  TrainingEnrollment[]
+  mlPredictions        MlPrediction[]
+
+  @@index([departmentId])
+  @@index([organizationId])
+  @@index([managerId])
+  @@index([status])
+  @@index([hireDate])
+  @@map("employees")
+}
+
+// ─── Recruitment ─────────────────────────────────────────
+
+model JobRequisition {
+  id           String            @id @default(uuid())
+  title        String
+  description  String?
+  departmentId String            @map("department_id")
+  hiringMgrId  String?           @map("hiring_manager_id")
+  grade        String?
+  minSalary    Decimal?          @db.Decimal(15, 2) @map("min_salary")
+  maxSalary    Decimal?          @db.Decimal(15, 2) @map("max_salary")
+  headcount    Int               @default(1)
+  status       RequisitionStatus @default(DRAFT)
+  priority     String?
+  location     String?
+  openDate     DateTime?         @map("open_date")
+  targetDate   DateTime?         @map("target_date")
+  closedDate   DateTime?         @map("closed_date")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  department   Department    @relation(fields: [departmentId], references: [id])
+  applications Application[]
+
+  @@index([departmentId])
+  @@index([status])
+  @@index([openDate])
+  @@map("job_requisitions")
+}
+
+model Candidate {
+  id          String   @id @default(uuid())
+  firstName   String   @map("first_name")
+  lastName    String   @map("last_name")
+  email       String   @unique
+  phone       String?
+  resumeUrl   String?  @map("resume_url")
+  linkedinUrl String?  @map("linkedin_url")
+  source      String?
+  tags        Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  applications Application[]
+
+  @@map("candidates")
+}
+
+model Application {
+  id            String            @id @default(uuid())
+  candidateId   String            @map("candidate_id")
+  requisitionId String            @map("requisition_id")
+  stage         ApplicationStage  @default(APPLIED)
+  status        ApplicationStatus @default(ACTIVE)
+  score         Decimal?          @db.Decimal(5, 2)
+  notes         String?
+  appliedAt     DateTime          @default(now()) @map("applied_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  candidate   Candidate      @relation(fields: [candidateId], references: [id])
+  requisition JobRequisition @relation(fields: [requisitionId], references: [id])
+  interviews  Interview[]
+
+  @@unique([candidateId, requisitionId])
+  @@index([requisitionId])
+  @@index([stage])
+  @@index([status])
+  @@map("applications")
+}
+
+model Interview {
+  id            String          @id @default(uuid())
+  applicationId String          @map("application_id")
+  interviewerId String          @map("interviewer_id")
+  type          String?
+  scheduledAt   DateTime        @map("scheduled_at")
+  duration      Int?
+  location      String?
+  meetingUrl    String?         @map("meeting_url")
+  result        InterviewResult @default(PENDING)
+  feedback      String?
+  score         Decimal?        @db.Decimal(5, 2)
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  application Application @relation(fields: [applicationId], references: [id])
+  interviewer Employee    @relation("Interviewer", fields: [interviewerId], references: [id])
+
+  @@index([applicationId])
+  @@index([interviewerId])
+  @@index([scheduledAt])
+  @@map("interviews")
+}
+
+// ─── Performance ─────────────────────────────────────────
+
+model PerformanceCycle {
+  id          String                 @id @default(uuid())
+  name        String
+  description String?
+  startDate   DateTime               @map("start_date")
+  endDate     DateTime               @map("end_date")
+  status      PerformanceCycleStatus @default(DRAFT)
+  createdAt   DateTime               @default(now()) @map("created_at")
+  updatedAt   DateTime               @updatedAt @map("updated_at")
+
+  reviews PerformanceReview[]
+
+  @@index([status])
+  @@map("performance_cycles")
+}
+
+model PerformanceReview {
+  id           String       @id @default(uuid())
+  cycleId      String       @map("cycle_id")
+  employeeId   String       @map("employee_id")
+  reviewerId   String       @map("reviewer_id")
+  rating       ReviewRating?
+  goals        Json?
+  strengths    String?
+  improvements String?
+  comments     String?
+  submittedAt  DateTime?    @map("submitted_at")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  cycle    PerformanceCycle @relation(fields: [cycleId], references: [id])
+  employee Employee         @relation("ReviewEmployee", fields: [employeeId], references: [id])
+  reviewer Employee         @relation("ReviewReviewer", fields: [reviewerId], references: [id])
+
+  @@unique([cycleId, employeeId, reviewerId])
+  @@index([employeeId])
+  @@index([reviewerId])
+  @@map("performance_reviews")
+}
+
+// ─── Culture & Surveys ───────────────────────────────────
+
+model Survey {
+  id          String       @id @default(uuid())
+  title       String
+  description String?
+  type        SurveyType   @default(ENGAGEMENT)
+  status      SurveyStatus @default(DRAFT)
+  questions   Json?
+  startDate   DateTime?    @map("start_date")
+  endDate     DateTime?    @map("end_date")
+  isAnonymous Boolean      @default(true) @map("is_anonymous")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  responses SurveyResponse[]
+
+  @@index([type])
+  @@index([status])
+  @@map("surveys")
+}
+
+model SurveyResponse {
+  id          String   @id @default(uuid())
+  surveyId    String   @map("survey_id")
+  employeeId  String?  @map("employee_id")
+  responses   Json
+  score       Decimal? @db.Decimal(5, 2)
+  submittedAt DateTime @default(now()) @map("submitted_at")
+
+  survey   Survey    @relation(fields: [surveyId], references: [id])
+  employee Employee? @relation(fields: [employeeId], references: [id])
+
+  @@index([surveyId])
+  @@index([employeeId])
+  @@map("survey_responses")
+}
+
+// ─── Training & Development ──────────────────────────────
+
+model TrainingProgram {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  category    String
+  provider    String?
+  format      String?
+  duration    Int?
+  maxCapacity Int?     @map("max_capacity")
+  cost        Decimal? @db.Decimal(10, 2)
+  isActive    Boolean  @default(true) @map("is_active")
+  tags        Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  enrollments TrainingEnrollment[]
+
+  @@index([category])
+  @@map("training_programs")
+}
+
+model TrainingEnrollment {
+  id          String           @id @default(uuid())
+  programId   String           @map("program_id")
+  employeeId  String           @map("employee_id")
+  status      EnrollmentStatus @default(ENROLLED)
+  enrolledAt  DateTime         @default(now()) @map("enrolled_at")
+  startedAt   DateTime?        @map("started_at")
+  completedAt DateTime?        @map("completed_at")
+  score       Decimal?         @db.Decimal(5, 2)
+  feedback    String?
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  program  TrainingProgram @relation(fields: [programId], references: [id])
+  employee Employee        @relation(fields: [employeeId], references: [id])
+
+  @@unique([programId, employeeId])
+  @@index([employeeId])
+  @@index([status])
+  @@map("training_enrollments")
+}
+
+// ─── DEI ─────────────────────────────────────────────────
+
+model DeiMetric {
+  id        String   @id @default(uuid())
+  period    String
+  dimension String
+  category  String
+  value     Decimal  @db.Decimal(10, 4)
+  benchmark Decimal? @db.Decimal(10, 4)
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([period, dimension, category])
+  @@index([period])
+  @@index([dimension])
+  @@map("dei_metrics")
+}
+
+// ─── Notifications ───────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  type      NotificationType @default(INFO)
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean          @default(false) @map("is_read")
+  readAt    DateTime?        @map("read_at")
+  expiresAt DateTime?        @map("expires_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user UserAccount @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ─── Auth & RBAC ─────────────────────────────────────────
+
+model UserAccount {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  employeeId   String?  @unique @map("employee_id")
+  isActive     Boolean  @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  employee      Employee?      @relation(fields: [employeeId], references: [id])
+  userRoles     UserRole[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+
+  @@map("user_accounts")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  permissions Json
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  userRoles UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+  roleId String @map("role_id")
+
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  user UserAccount @relation(fields: [userId], references: [id])
+  role Role        @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+// ─── Audit ───────────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?  @map("user_id")
+  action    String
+  entity    String
+  entityId  String?  @map("entity_id")
+  oldValue  Json?    @map("old_value")
+  newValue  Json?    @map("new_value")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user UserAccount? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ─── KPI ─────────────────────────────────────────────────
+
+model KpiSnapshot {
+  id            String     @id @default(uuid())
+  kpiId         String     @map("kpi_id")
+  moduleType    ModuleType @map("module_type")
+  value         Decimal    @db.Decimal(15, 4)
+  previousValue Decimal?   @db.Decimal(15, 4) @map("previous_value")
+  target        Decimal?   @db.Decimal(15, 4)
+  unit          String?
+  period        String
+  metadata      Json?
+  calculatedAt  DateTime   @default(now()) @map("calculated_at")
+
+  @@unique([kpiId, period])
+  @@index([kpiId])
+  @@index([moduleType])
+  @@index([period])
+  @@map("kpi_snapshots")
+}
+
+// ─── ML Predictions ──────────────────────────────────────
+
+model MlPrediction {
+  id         String      @id @default(uuid())
+  modelType  MlModelType @map("model_type")
+  employeeId String?     @map("employee_id")
+  score      Decimal     @db.Decimal(5, 4)
+  confidence Decimal     @db.Decimal(5, 4)
+  factors    Json
+  validUntil DateTime    @map("valid_until")
+  createdAt  DateTime    @default(now()) @map("created_at")
+
+  employee Employee? @relation(fields: [employeeId], references: [id])
+
+  @@index([modelType])
+  @@index([employeeId])
+  @@index([createdAt])
+  @@map("ml_predictions")
+}

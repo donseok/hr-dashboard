@@ -1,0 +1,89 @@
+name: CD — Production
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    name: Build & Push (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - service: web
+            context: .
+            dockerfile: infra/docker/Dockerfile.web
+          - service: api
+            context: .
+            dockerfile: infra/docker/Dockerfile.api
+          - service: ml-service
+            context: apps/ml-service
+            dockerfile: infra/docker/Dockerfile.ml
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to Production
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: production   # requires manual approval
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+
+      - name: Deploy with Kustomize
+        run: |
+          kubectl apply -k infra/kubernetes/overlays/production
+
+      - name: Wait for rollout
+        run: |
+          kubectl -n hr-dashboard rollout status deployment/web --timeout=600s
+          kubectl -n hr-dashboard rollout status deployment/api --timeout=600s
+          kubectl -n hr-dashboard rollout status deployment/ml-service --timeout=600s
+
+      - name: Verify health
+        run: |
+          kubectl -n hr-dashboard get pods
+          kubectl -n hr-dashboard get svc
+          echo "Production deployment complete: ${{ github.ref_name }}"

@@ -1,0 +1,797 @@
+scalar Date
+scalar JSON
+
+# ─── Common ───────────────────────────────────────────────
+
+type PaginationMeta {
+  page: Int!
+  limit: Int!
+  total: Int!
+  totalPages: Int!
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+}
+
+input PaginationInput {
+  page: Int = 1
+  limit: Int = 20
+}
+
+input DateRangeInput {
+  start: Date!
+  end: Date!
+}
+
+type TrendPoint {
+  date: String!
+  value: Float!
+  label: String
+}
+
+type KpiCardData {
+  kpiId: String!
+  label: String!
+  value: Float!
+  previousValue: Float
+  changePercent: Float!
+  trend: String!
+  signal: String!
+  unit: String!
+  format: String!
+}
+
+type DistributionItem {
+  label: String!
+  value: Float!
+  count: Int!
+  percentage: Float!
+  color: String
+}
+
+# ─── Auth ─────────────────────────────────────────────────
+
+type AuthTokens {
+  accessToken: String!
+  refreshToken: String!
+  expiresIn: Int!
+}
+
+type AuthUser {
+  id: ID!
+  email: String!
+  employeeId: String
+  roles: [RoleType!]!
+  permissions: [String!]!
+}
+
+type LoginResponse {
+  user: AuthUser!
+  tokens: AuthTokens!
+}
+
+input LoginInput {
+  email: String!
+  password: String!
+}
+
+type RoleType {
+  id: ID!
+  name: String!
+  permissions: JSON!
+}
+
+# ─── Organization ────────────────────────────────────────
+
+type Organization {
+  id: ID!
+  name: String!
+  code: String!
+  industry: String
+  departments: [Department!]!
+  createdAt: Date!
+}
+
+# ─── Department ──────────────────────────────────────────
+
+type Department {
+  id: ID!
+  name: String!
+  code: String!
+  description: String
+  parentId: String
+  headId: String
+  headcount: Int!
+  parent: Department
+  children: [Department!]!
+  employees: [Employee!]!
+  createdAt: Date!
+}
+
+# ─── Employee ────────────────────────────────────────────
+
+type Employee {
+  id: ID!
+  employeeNumber: String!
+  firstName: String!
+  lastName: String!
+  email: String!
+  position: String!
+  grade: String
+  hireDate: Date!
+  terminationDate: Date
+  employmentType: String!
+  status: String!
+  location: String
+  department: Department!
+  manager: Employee
+  directReports: [Employee!]!
+  createdAt: Date!
+}
+
+type EmployeePaginated {
+  data: [Employee!]!
+  meta: PaginationMeta!
+}
+
+input EmployeeFilterInput {
+  departmentIds: [String!]
+  statuses: [String!]
+  employmentTypes: [String!]
+  locations: [String!]
+  search: String
+}
+
+input UpdateEmployeeInput {
+  firstName: String
+  lastName: String
+  position: String
+  grade: String
+  location: String
+  status: String
+  employmentType: String
+}
+
+input TransferEmployeeInput {
+  employeeId: String!
+  newDepartmentId: String!
+  newPosition: String
+  newManagerId: String
+  effectiveDate: Date!
+  reason: String
+}
+
+# ─── Recruitment ─────────────────────────────────────────
+
+type JobRequisition {
+  id: ID!
+  title: String!
+  description: String
+  departmentId: String!
+  department: Department!
+  grade: String
+  minSalary: Float
+  maxSalary: Float
+  status: String!
+  priority: String
+  headcount: Int!
+  location: String
+  openDate: Date
+  targetDate: Date
+  closedDate: Date
+  applications: [Application!]!
+  applicationCount: Int!
+  createdAt: Date!
+}
+
+type JobRequisitionPaginated {
+  data: [JobRequisition!]!
+  meta: PaginationMeta!
+}
+
+input CreateRequisitionInput {
+  title: String!
+  description: String
+  departmentId: String!
+  grade: String
+  minSalary: Float
+  maxSalary: Float
+  headcount: Int = 1
+  priority: String
+  location: String
+  targetDate: Date
+}
+
+input RecruitmentFilterInput {
+  departmentIds: [String!]
+  statuses: [String!]
+  dateRange: DateRangeInput
+  search: String
+}
+
+type Candidate {
+  id: ID!
+  firstName: String!
+  lastName: String!
+  email: String!
+  source: String
+  applications: [Application!]!
+  createdAt: Date!
+}
+
+type Application {
+  id: ID!
+  candidate: Candidate!
+  requisition: JobRequisition!
+  stage: String!
+  status: String!
+  score: Float
+  notes: String
+  interviews: [Interview!]!
+  appliedAt: Date!
+}
+
+type Interview {
+  id: ID!
+  application: Application!
+  interviewer: Employee!
+  type: String
+  scheduledAt: Date!
+  duration: Int
+  location: String
+  meetingUrl: String
+  result: String!
+  feedback: String
+  score: Float
+}
+
+input UpdateApplicationInput {
+  applicationId: String!
+  stage: String
+  status: String
+  score: Float
+  notes: String
+}
+
+input ScheduleInterviewInput {
+  applicationId: String!
+  interviewerId: String!
+  type: String!
+  scheduledAt: Date!
+  duration: Int
+  location: String
+  meetingUrl: String
+}
+
+input MakeOfferInput {
+  applicationId: String!
+  salary: Float!
+  startDate: Date!
+  notes: String
+}
+
+type RecruitmentFunnelStage {
+  stage: String!
+  count: Int!
+  conversionRate: Float!
+  avgDaysInStage: Float!
+}
+
+type ChannelEfficiency {
+  source: String!
+  applicants: Int!
+  hires: Int!
+  conversionRate: Float!
+  avgTimeToHire: Float!
+  costPerHire: Float
+}
+
+type RecruitmentDashboard {
+  kpis: [KpiCardData!]!
+  funnel: [RecruitmentFunnelStage!]!
+  channelEfficiency: [ChannelEfficiency!]!
+  timeToHireTrend: [TrendPoint!]!
+  openRequisitions: Int!
+  activeApplications: Int!
+  interviewsThisWeek: Int!
+  offersExtended: Int!
+}
+
+# ─── Workforce / Workforce Dashboard ────────────────────
+
+type HeadcountByDepartment {
+  departmentId: String!
+  departmentName: String!
+  count: Int!
+  percentage: Float!
+}
+
+type TurnoverAnalysis {
+  period: String!
+  totalTerminations: Int!
+  voluntaryCount: Int!
+  involuntaryCount: Int!
+  turnoverRate: Float!
+  retentionRate: Float!
+  avgTenureMonths: Float!
+}
+
+type OrgNode {
+  id: String!
+  name: String!
+  position: String!
+  departmentId: String!
+  departmentName: String!
+  managerId: String
+  directReportCount: Int!
+}
+
+type WorkforceDashboard {
+  kpis: [KpiCardData!]!
+  headcountTrend: [TrendPoint!]!
+  headcountByDepartment: [HeadcountByDepartment!]!
+  turnoverAnalysis: TurnoverAnalysis!
+  employmentTypeDistribution: [DistributionItem!]!
+  tenureDistribution: [DistributionItem!]!
+  newHiresCount: Int!
+  terminationsCount: Int!
+}
+
+# ─── Performance ─────────────────────────────────────────
+
+type PerformanceCycle {
+  id: ID!
+  name: String!
+  description: String
+  startDate: Date!
+  endDate: Date!
+  status: String!
+  reviews: [PerformanceReview!]!
+  totalReviews: Int!
+  completedReviews: Int!
+  completionRate: Float!
+}
+
+type PerformanceReview {
+  id: ID!
+  cycle: PerformanceCycle!
+  employee: Employee!
+  reviewer: Employee!
+  rating: String
+  goals: JSON
+  strengths: String
+  improvements: String
+  comments: String
+  submittedAt: Date
+}
+
+type RatingDistribution {
+  rating: String!
+  count: Int!
+  percentage: Float!
+}
+
+type NineBoxCell {
+  performance: String!
+  potential: String!
+  count: Int!
+  employees: [NineBoxEmployee!]!
+}
+
+type NineBoxEmployee {
+  id: String!
+  firstName: String!
+  lastName: String!
+  position: String!
+  department: String!
+  rating: String
+}
+
+type CalibrationData {
+  cycleId: String!
+  totalReviews: Int!
+  completedReviews: Int!
+  ratingDistribution: [RatingDistribution!]!
+  departmentAverages: [DepartmentPerformance!]!
+  outliers: [PerformanceReview!]!
+}
+
+type DepartmentPerformance {
+  departmentId: String!
+  departmentName: String!
+  averageRating: Float!
+  reviewCount: Int!
+  completionRate: Float!
+}
+
+type PerformanceDashboard {
+  kpis: [KpiCardData!]!
+  activeCycle: PerformanceCycle
+  ratingDistribution: [RatingDistribution!]!
+  departmentPerformance: [DepartmentPerformance!]!
+  completionTrend: [TrendPoint!]!
+  goalAchievementRate: Float!
+}
+
+input CreateCycleInput {
+  name: String!
+  description: String
+  startDate: Date!
+  endDate: Date!
+}
+
+input CalibrateRatingsInput {
+  cycleId: String!
+  adjustments: [RatingAdjustmentInput!]!
+}
+
+input RatingAdjustmentInput {
+  reviewId: String!
+  newRating: String!
+  reason: String
+}
+
+# ─── Culture & Surveys ───────────────────────────────────
+
+type Survey {
+  id: ID!
+  title: String!
+  description: String
+  type: String!
+  status: String!
+  startDate: Date
+  endDate: Date
+  isAnonymous: Boolean!
+  responseCount: Int!
+}
+
+type SurveyResponse {
+  id: ID!
+  survey: Survey!
+  responses: JSON!
+  score: Float
+  submittedAt: Date!
+}
+
+# ─── Training ────────────────────────────────────────────
+
+type TrainingProgram {
+  id: ID!
+  title: String!
+  description: String
+  category: String!
+  provider: String
+  format: String
+  duration: Int
+  isActive: Boolean!
+  enrollmentCount: Int!
+}
+
+type TrainingEnrollment {
+  id: ID!
+  program: TrainingProgram!
+  employee: Employee!
+  status: String!
+  enrolledAt: Date!
+  completedAt: Date
+  score: Float
+}
+
+# ─── DEI ─────────────────────────────────────────────────
+
+type DeiMetric {
+  id: ID!
+  period: String!
+  dimension: String!
+  category: String!
+  value: Float!
+  benchmark: Float
+}
+
+# ─── Culture Dashboard ───────────────────────────────────
+
+type CultureDashboard {
+  kpis: [KpiCardData!]!
+  engagementTrend: [TrendPoint!]!
+  eNPS: Float!
+  surveyParticipationRate: Float!
+  sentimentAnalysis: SentimentAnalysis!
+  departmentEngagement: [DepartmentEngagement!]!
+  recentSurveys: [Survey!]!
+  activeSurveyCount: Int!
+  totalResponseCount: Int!
+}
+
+type SentimentAnalysis {
+  positive: Float!
+  neutral: Float!
+  negative: Float!
+  topKeywords: [KeywordFrequency!]!
+}
+
+type KeywordFrequency {
+  keyword: String!
+  count: Int!
+  sentiment: String!
+}
+
+type DepartmentEngagement {
+  departmentId: String!
+  departmentName: String!
+  score: Float!
+  responseRate: Float!
+  trend: String!
+}
+
+input CreateSurveyInput {
+  title: String!
+  description: String
+  type: String!
+  isAnonymous: Boolean = true
+  startDate: Date
+  endDate: Date
+  questions: JSON
+}
+
+input SubmitSurveyResponseInput {
+  surveyId: String!
+  responses: JSON!
+  score: Float
+}
+
+# ─── Development Dashboard ───────────────────────────────
+
+type DevelopmentDashboard {
+  kpis: [KpiCardData!]!
+  programsByCategory: [DistributionItem!]!
+  enrollmentTrend: [TrendPoint!]!
+  completionRate: Float!
+  topPrograms: [TrainingProgram!]!
+  skillGapAnalysis: [SkillGap!]!
+  internalMobilityRate: Float!
+  leadershipPipelineRatio: Float!
+}
+
+type SkillGap {
+  skill: String!
+  currentLevel: Float!
+  requiredLevel: Float!
+  gap: Float!
+  employeeCount: Int!
+}
+
+input CreateProgramInput {
+  title: String!
+  description: String
+  category: String!
+  provider: String
+  format: String
+  duration: Int
+  maxCapacity: Int
+  cost: Float
+}
+
+input EnrollEmployeeInput {
+  programId: String!
+  employeeId: String!
+}
+
+# ─── DEI Dashboard ───────────────────────────────────────
+
+type DeiDashboard {
+  kpis: [KpiCardData!]!
+  genderDistribution: [DistributionItem!]!
+  payEquityAnalysis: [PayEquityItem!]!
+  deiTrend: [TrendPoint!]!
+  inclusionScore: Float!
+  diversityByDepartment: [DepartmentDiversity!]!
+  recentMetrics: [DeiMetric!]!
+}
+
+type PayEquityItem {
+  grade: String!
+  category: String!
+  avgSalaryMale: Float!
+  avgSalaryFemale: Float!
+  gapPercent: Float!
+  employeeCount: Int!
+}
+
+type DepartmentDiversity {
+  departmentId: String!
+  departmentName: String!
+  diversityScore: Float!
+  genderRatio: Float!
+  employeeCount: Int!
+}
+
+input RecordDeiMetricInput {
+  period: String!
+  dimension: String!
+  category: String!
+  value: Float!
+  benchmark: Float
+}
+
+# ─── Lifecycle Dashboard ─────────────────────────────────
+
+type LifecycleDashboard {
+  kpis: [KpiCardData!]!
+  employeeJourney: [JourneyStage!]!
+  crossModuleInsights: [CrossModuleInsight!]!
+  attritionCorrelation: [CorrelationItem!]!
+  moduleKpiSummary: [ModuleKpiSummary!]!
+}
+
+type JourneyStage {
+  stage: String!
+  avgDuration: Float!
+  count: Int!
+  conversionRate: Float!
+}
+
+type CrossModuleInsight {
+  title: String!
+  description: String!
+  sourceModule: String!
+  targetModule: String!
+  correlationStrength: Float!
+  insight: String!
+}
+
+type CorrelationItem {
+  factor: String!
+  correlationWithAttrition: Float!
+  sampleSize: Int!
+  significance: String!
+}
+
+type ModuleKpiSummary {
+  module: String!
+  kpis: [KpiCardData!]!
+  overallSignal: String!
+}
+
+# ─── KPI ─────────────────────────────────────────────────
+
+type KpiSnapshot {
+  id: ID!
+  kpiId: String!
+  moduleType: String!
+  value: Float!
+  previousValue: Float
+  target: Float
+  unit: String
+  period: String!
+  calculatedAt: Date!
+}
+
+# ─── Notifications ───────────────────────────────────────
+
+type Notification {
+  id: ID!
+  type: String!
+  title: String!
+  message: String!
+  link: String
+  isRead: Boolean!
+  createdAt: Date!
+}
+
+# ─── Queries ─────────────────────────────────────────────
+
+type Query {
+  # Auth
+  me: AuthUser!
+
+  # Workforce
+  employees(filter: EmployeeFilterInput, pagination: PaginationInput): EmployeePaginated!
+  employee(id: ID!): Employee!
+  departments: [Department!]!
+  department(id: ID!): Department!
+  workforceDashboard(dateRange: DateRangeInput): WorkforceDashboard!
+  headcountTrend(months: Int): [TrendPoint!]!
+  turnoverAnalysis(dateRange: DateRangeInput): TurnoverAnalysis!
+  orgStructure(departmentId: String): [OrgNode!]!
+
+  # Recruitment
+  requisitions(filter: RecruitmentFilterInput, pagination: PaginationInput): JobRequisitionPaginated!
+  requisition(id: ID!): JobRequisition!
+  candidates(pagination: PaginationInput): [Candidate!]!
+  candidate(id: ID!): Candidate!
+  recruitmentDashboard(dateRange: DateRangeInput): RecruitmentDashboard!
+  recruitmentFunnel(requisitionId: ID, dateRange: DateRangeInput): [RecruitmentFunnelStage!]!
+  channelEfficiency(dateRange: DateRangeInput): [ChannelEfficiency!]!
+  timeToHireTrend(months: Int): [TrendPoint!]!
+
+  # Performance
+  performanceCycles: [PerformanceCycle!]!
+  performanceCycle(id: ID!): PerformanceCycle!
+  performanceReviews(cycleId: ID!, employeeId: ID): [PerformanceReview!]!
+  performanceDashboard(cycleId: ID): PerformanceDashboard!
+  ratingDistribution(cycleId: ID!): [RatingDistribution!]!
+  nineBoxData(cycleId: ID!): [NineBoxCell!]!
+  calibrationData(cycleId: ID!): CalibrationData!
+
+  # Culture
+  surveys(type: String): [Survey!]!
+  survey(id: ID!): Survey!
+  cultureDashboard: CultureDashboard!
+  engagementTrend(months: Int): [TrendPoint!]!
+  eNPSScore: Float!
+  sentimentAnalysis(surveyId: ID): SentimentAnalysis!
+
+  # Training / Development
+  trainingPrograms(category: String): [TrainingProgram!]!
+  trainingProgram(id: ID!): TrainingProgram!
+  myEnrollments: [TrainingEnrollment!]!
+  developmentDashboard: DevelopmentDashboard!
+  skillGapAnalysis: [SkillGap!]!
+  internalMobilityRate: Float!
+
+  # DEI
+  deiMetrics(dimension: String, period: String): [DeiMetric!]!
+  deiDashboard: DeiDashboard!
+  payEquityAnalysis(grade: String): [PayEquityItem!]!
+  deiTrend(months: Int): [TrendPoint!]!
+
+  # Lifecycle
+  lifecycleDashboard: LifecycleDashboard!
+  employeeJourney(employeeId: ID!): [JourneyStage!]!
+  crossModuleAnalysis: [CrossModuleInsight!]!
+  attritionCorrelation: [CorrelationItem!]!
+
+  # KPI
+  kpiSnapshots(kpiId: String, moduleType: String, period: String): [KpiSnapshot!]!
+  latestKpis(moduleType: String): [KpiSnapshot!]!
+
+  # Notifications
+  notifications(unreadOnly: Boolean): [Notification!]!
+  unreadNotificationCount: Int!
+}
+
+# ─── Mutations ───────────────────────────────────────────
+
+type Mutation {
+  # Auth
+  login(input: LoginInput!): LoginResponse!
+  refreshToken(refreshToken: String!): AuthTokens!
+
+  # Recruitment
+  createRequisition(input: CreateRequisitionInput!): JobRequisition!
+  updateRequisitionStatus(id: ID!, status: String!): JobRequisition!
+  updateApplication(input: UpdateApplicationInput!): Application!
+  scheduleInterview(input: ScheduleInterviewInput!): Interview!
+  makeOffer(input: MakeOfferInput!): Application!
+
+  # Workforce
+  updateEmployee(id: ID!, input: UpdateEmployeeInput!): Employee!
+  transferEmployee(input: TransferEmployeeInput!): Employee!
+
+  # Performance
+  createCycle(input: CreateCycleInput!): PerformanceCycle!
+  submitReview(reviewId: ID!, rating: String!, comments: String): PerformanceReview!
+  calibrateRatings(input: CalibrateRatingsInput!): CalibrationData!
+
+  # Culture
+  createSurvey(input: CreateSurveyInput!): Survey!
+  submitSurveyResponse(input: SubmitSurveyResponseInput!): SurveyResponse!
+
+  # Development
+  createProgram(input: CreateProgramInput!): TrainingProgram!
+  enrollEmployee(input: EnrollEmployeeInput!): TrainingEnrollment!
+  completeTraining(enrollmentId: ID!, score: Float): TrainingEnrollment!
+
+  # DEI
+  recordDeiMetric(input: RecordDeiMetricInput!): DeiMetric!
+
+  # Notifications
+  markNotificationRead(id: ID!): Notification!
+  markAllNotificationsRead: Boolean!
+}
+
+# ─── Subscriptions ───────────────────────────────────────
+
+type Subscription {
+  notificationReceived: Notification!
+  kpiUpdated(moduleType: String): KpiSnapshot!
+}

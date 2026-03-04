@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9'
+
+jobs:
+  # ---------- Lint & Type-check ----------
+  lint:
+    name: Lint & Type-check (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [web, api]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        if: matrix.app == 'api'
+        run: pnpm --filter @hr-dashboard/api prisma:generate
+
+      - name: Lint
+        run: pnpm --filter @hr-dashboard/${{ matrix.app }} lint
+
+      - name: Type-check
+        run: pnpm --filter @hr-dashboard/${{ matrix.app }} build
+
+  # ---------- Tests ----------
+  test:
+    name: Test (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [web, api]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        if: matrix.app == 'api'
+        run: pnpm --filter @hr-dashboard/api prisma:generate
+
+      - name: Run tests
+        run: pnpm --filter @hr-dashboard/${{ matrix.app }} test
+
+  # ---------- ML Service ----------
+  ml-service:
+    name: ML Service (lint & type-check)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/ml-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Lint (ruff)
+        run: |
+          pip install ruff
+          ruff check .
+
+      - name: Type-check (mypy)
+        run: |
+          pip install mypy
+          mypy main.py --ignore-missing-imports || true
+
+  # ---------- Build check ----------
+  build:
+    name: Build
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @hr-dashboard/api prisma:generate
+      - run: pnpm build
