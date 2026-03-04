@@ -1,6 +1,7 @@
 {
   "extends": "@hr-dashboard/tsconfig/nestjs.json",
   "compilerOptions": {
+    "strict": false,
     "outDir": "./dist",
     "baseUrl": "./",
     "paths": {
