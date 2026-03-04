@@ -4,7 +4,8 @@ import { DevelopmentService } from './development.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RbacGuard } from '../auth/guards/rbac.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { CurrentUser, CurrentUserData } from '../auth/decorators/current-user.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { CurrentUserData } from '../auth/decorators/current-user.decorator';
 
 @UseGuards(JwtAuthGuard, RbacGuard)
 @Resolver()
