@@ -3,6 +3,7 @@ import { GqlExecutionContext } from '@nestjs/graphql';
 
 export interface CurrentUserData {
   id: string;
+  userId: string;
   email: string;
   employeeId: string | null;
   departmentId: string | null;
