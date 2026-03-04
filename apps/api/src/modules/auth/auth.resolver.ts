@@ -1,7 +1,8 @@
 import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { CurrentUser, CurrentUserData } from './decorators/current-user.decorator';
+import { CurrentUser } from './decorators/current-user.decorator';
+import type { CurrentUserData } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
