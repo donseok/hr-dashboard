@@ -1,3 +1,4 @@
+
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -5,22 +6,23 @@ import {
   OnGatewayDisconnect,
   SubscribeMessage,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 
 @WebSocketGateway({
   cors: { origin: '*' },
   namespace: '/notifications',
 })
-export class NotificationGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class NotificationGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
-  server: Server;
+  server: any;
 
   private readonly logger = new Logger(NotificationGateway.name);
   private readonly userSockets = new Map<string, Set<string>>();
 
-  handleConnection(client: Socket) {
-    const userId = client.handshake.query.userId as string;
+  handleConnection(client: any) {
+    const userId = client.handshake?.query?.userId as string;
     if (userId) {
       if (!this.userSockets.has(userId)) {
         this.userSockets.set(userId, new Set());
@@ -31,8 +33,8 @@ export class NotificationGateway implements OnGatewayConnection, OnGatewayDiscon
     }
   }
 
-  handleDisconnect(client: Socket) {
-    const userId = client.handshake.query.userId as string;
+  handleDisconnect(client: any) {
+    const userId = client.handshake?.query?.userId as string;
     if (userId) {
       this.userSockets.get(userId)?.delete(client.id);
       if (this.userSockets.get(userId)?.size === 0) {
@@ -47,7 +49,7 @@ export class NotificationGateway implements OnGatewayConnection, OnGatewayDiscon
   }
 
   @SubscribeMessage('markRead')
-  handleMarkRead(client: Socket, data: { notificationId: string }) {
+  handleMarkRead(client: any, data: { notificationId: string }) {
     this.logger.debug(`Mark read: ${data.notificationId}`);
   }
 }
